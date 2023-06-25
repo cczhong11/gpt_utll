@@ -1,0 +1,5 @@
+torch
+transformers
+psutil
+tqdm
+huggingface_hub
