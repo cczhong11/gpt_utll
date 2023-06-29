@@ -3,3 +3,8 @@ transformers
 psutil
 tqdm
 huggingface_hub
+peft
+accelerate
+bitsandbytes
+datasets
+sentencepiece

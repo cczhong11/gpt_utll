@@ -1,10 +1,11 @@
 import psutil
 import torch
 
+
 class SystemUtil:
     @staticmethod
     def get_ram_usage():
-        return psutil.virtual_memory().percent
+        return f"{psutil.virtual_memory().used} / {psutil.virtual_memory().total}"
 
     @staticmethod
     def get_gpu_usage():
