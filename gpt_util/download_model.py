@@ -63,7 +63,7 @@ class ModelDownloader:
                 ):
                     is_lora = True
 
-                is_pytorch = re.match("(pytorch|adapter)_model.*\.bin", fname)
+                is_pytorch = re.match("(pytorch|adapter|gptq_*)_model.*\.bin", fname)
                 is_safetensors = re.match(".*\.safetensors", fname)
                 is_pt = re.match(".*\.pt", fname)
                 is_ggml = re.match(".*ggml.*\.bin", fname)
