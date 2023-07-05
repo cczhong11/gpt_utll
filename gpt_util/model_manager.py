@@ -36,7 +36,7 @@ class ModelManager:
         model_path = self.model_path.replace("/", "_")
         model_file_path = os.path.join("models", model_path)
         if not os.path.exists(model_file_path):
-            list(self.download_model(self.model_path))
+            self.download_model(self.model_path)
         if self.model_type == "llama":
             self.tokenizer = LlamaTokenizer.from_pretrained(
                 model_file_path, add_eos_token=True
@@ -63,11 +63,11 @@ class ModelManager:
         if self.lora:
             lora_path = self.lora.replace("/", "_")
             if not os.path.exists(os.path.join("loras", lora_path)):
-                list(self.download_model(self.lora))
+                self.download_model(self.lora)
             self.load_lora(os.path.join("loras", lora_path))
 
     def download_model(self, repo_id: str):
-        yield download_model_wrapper(repo_id)
+        list(download_model_wrapper(repo_id))
 
     def upload_model(
         self,
