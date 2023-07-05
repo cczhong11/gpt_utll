@@ -2,7 +2,7 @@ torch
 psutil
 tqdm
 huggingface_hub
-git+https://github.com/huggingface/peft
+git+https://github.com/huggingface/peft.git
 git+https://github.com/huggingface/transformers.git
 accelerate
 bitsandbytes
