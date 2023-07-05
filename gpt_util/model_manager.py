@@ -5,7 +5,13 @@ from gpt_util.download_model import download_model_wrapper
 from huggingface_hub import HfApi
 from pathlib import Path
 from huggingface_hub.utils import validate_repo_id, HfHubHTTPError
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import (
+    AutoTokenizer,
+    LlamaForCausalLM,
+    AutoModelForCausalLM,
+    BitsAndBytesConfig,
+    LlamaTokenizer,
+)
 
 
 class ModelManager:
@@ -23,7 +29,7 @@ class ModelManager:
 
     def load_model(self):
         if self.model_type == "llama":
-            self.tokenizer = AutoTokenizer.from_pretrained(
+            self.tokenizer = LlamaTokenizer.from_pretrained(
                 self.model_path, add_eos_token=True
             )
             if self.load_4bits:
@@ -33,21 +39,21 @@ class ModelManager:
                     bnb_4bit_quant_type="nf4",
                     bnb_4bit_compute_dtype=torch.bfloat16,
                 )
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model = LlamaForCausalLM.from_pretrained(
                     self.model_path,
                     quantization_config=bnb_config,
                     device_map="auto",
                     trust_remote_code=self.trust_remote_code,
                 )
             else:
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.model = LlamaForCausalLM.from_pretrained(
                     self.model_path,
                     device_map="auto",
                     trust_remote_code=self.trust_remote_code,
                 )
 
     def download_model(self, repo_id: str):
-        download_model_wrapper(repo_id)
+        yield download_model_wrapper(repo_id)
 
     def upload_model(
         self,

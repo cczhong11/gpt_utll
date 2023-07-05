@@ -1,10 +1,11 @@
 torch
-transformers
 psutil
 tqdm
 huggingface_hub
-peft
+git+https://github.com/huggingface/peft
+git+https://github.com/huggingface/transformers.git
 accelerate
 bitsandbytes
 datasets
 sentencepiece
+tensorboard
