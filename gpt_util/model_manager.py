@@ -1,3 +1,4 @@
+import os
 import huggingface_hub
 import torch
 
@@ -12,15 +13,19 @@ from transformers import (
     BitsAndBytesConfig,
     LlamaTokenizer,
 )
+from peft import set_peft_model_state_dict
 
 
 class ModelManager:
-    def __init__(self, model_path: str, model_type: str, load_4bits=False, **kwargs):
+    def __init__(
+        self, model_path: str, model_type: str, load_4bits=False, lora=None, **kwargs
+    ):
         self.model_path = model_path
         self.model = None
         self.load_4bits = load_4bits
         self.model_type = model_type
         self.trust_remote_code = False
+        self.lora = lora
         if "trust_remote_code" in kwargs:
             self.trust_remote_code = kwargs["trust_remote_code"]
 
@@ -28,9 +33,13 @@ class ModelManager:
         self.model.save_pretrained(output_dir)
 
     def load_model(self):
+        model_path = self.model_path.replace("/", "_")
+        model_file_path = os.path.join("models", model_path)
+        if not os.path.exists(model_file_path):
+            self.download_model(self.model_path)
         if self.model_type == "llama":
             self.tokenizer = LlamaTokenizer.from_pretrained(
-                self.model_path, add_eos_token=True
+                model_file_path, add_eos_token=True
             )
             if self.load_4bits:
                 bnb_config = BitsAndBytesConfig(
@@ -40,17 +49,22 @@ class ModelManager:
                     bnb_4bit_compute_dtype=torch.bfloat16,
                 )
                 self.model = LlamaForCausalLM.from_pretrained(
-                    self.model_path,
+                    model_file_path,
                     quantization_config=bnb_config,
                     device_map="auto",
                     trust_remote_code=self.trust_remote_code,
                 )
             else:
                 self.model = LlamaForCausalLM.from_pretrained(
-                    self.model_path,
+                    model_file_path,
                     device_map="auto",
                     trust_remote_code=self.trust_remote_code,
                 )
+        if self.lora:
+            lora_path = self.lora.replace("/", "_")
+            if not os.path.exists(os.path.join("loras", lora_path)):
+                self.download_model(self.lora)
+            self.load_lora(os.path.join("loras", lora_path))
 
     def download_model(self, repo_id: str):
         yield download_model_wrapper(repo_id)
@@ -109,3 +123,8 @@ class ModelManager:
         if len(outputs) > 1:
             raise ValueError("Batch generation is not supported")
         self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    def load_lora(self, path: str):
+        lora_path = os.path.join(path, "adapter_model.bin")
+        adapters_weights = torch.load(lora_path)
+        self.model = set_peft_model_state_dict(self.model, adapters_weights)
