@@ -9,3 +9,4 @@ bitsandbytes
 datasets
 sentencepiece
 tensorboard
+auto_gptq @ git+https://github.com/PanQiWei/AutoGPTQ@main

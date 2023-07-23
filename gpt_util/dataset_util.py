@@ -131,7 +131,7 @@ class chat_prompt(prompt):
         output = text.split("Assistant:")[-1].strip()
         if "User:" in output:
             output = output.split("User:")[0]
-        output = output.replace("�", "")
+        output = output.replace("?", "")
         if render:
             # fix gradio chatbot markdown code render bug
             lines = output.split("\n")

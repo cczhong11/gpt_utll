@@ -13,7 +13,7 @@ from transformers import (
     BitsAndBytesConfig,
     LlamaTokenizer,
 )
-from peft import set_peft_model_state_dict
+from peft import set_peft_model_state_dict, PeftModel
 
 
 class ModelManager:
@@ -28,9 +28,11 @@ class ModelManager:
         self.lora = lora
         if "trust_remote_code" in kwargs:
             self.trust_remote_code = kwargs["trust_remote_code"]
+        self.llamacpp_path = None
 
     def save_model(self, output_dir: str):
-        self.model.save_pretrained(output_dir)
+        AutoModelForCausalLM.save_pretrained(self.model, output_dir)
+        self.tokenizer.save_pretrained(output_dir)
 
     def load_model(self):
         model_path = self.model_path.replace("/", "_")
@@ -38,7 +40,7 @@ class ModelManager:
         if not os.path.exists(model_file_path):
             self.download_model(self.model_path)
         if self.model_type == "llama":
-            self.tokenizer = LlamaTokenizer.from_pretrained(
+            self.tokenizer = AutoTokenizer.from_pretrained(
                 model_file_path, add_eos_token=True
             )
             if self.load_4bits:
@@ -55,7 +57,7 @@ class ModelManager:
                     trust_remote_code=self.trust_remote_code,
                 )
             else:
-                self.model = LlamaForCausalLM.from_pretrained(
+                self.model = AutoModelForCausalLM.from_pretrained(
                     model_file_path,
                     device_map="auto",
                     trust_remote_code=self.trust_remote_code,
@@ -100,12 +102,48 @@ class ModelManager:
             + "/blob/main/"
         )
 
-    def quantize_model(self):
-        pass
+    def ggml_model(self, llamacpp_path, model_path, output_path):
+        self.llamacpp_path = llamacpp_path
+        os.chdir(llamacpp_path)
+        os.system("python convert.py " + model_path + " " + output_path)
+
+    def quantize_model(
+        self, pretrained_model_dir, quantized_model_dir, method: str = "gptq"
+    ):
+        if method == "ggml":
+            if not self.llamacpp_path:
+                raise ValueError("Please set llamacpp_path first")
+            os.chdir(self.llamacpp_path)
+            if "quantize" not in os.listdir(self.llamacpp_path):
+                raise ValueError("Please compile llamacpp first")
+            if not pretrained_model_dir.endswith(".bin"):
+                raise ValueError("Please set pretrained_model_dir to .bin file in ggml")
+            os.system("./quantize " + pretrained_model_dir + " " + quantized_model_dir)
+            return
+        from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
+
+        quantize_config = BaseQuantizeConfig(
+            bits=4,  # quantize model to 4-bit
+            group_size=128,  # it is recommended to set the value to 128
+            desc_act=False,  # set to False can significantly speed up inference but the perplexity may slightly bad
+        )
+        model = AutoGPTQForCausalLM.from_pretrained(
+            pretrained_model_dir, quantize_config
+        )
+        examples = [
+            self.tokenizer(
+                "auto-gptq is an easy-to-use model quantization library with user-friendly apis, based on GPTQ algorithm."
+            )
+        ]
+        # quantize model, the examples should be list of dict whose keys can only be "input_ids" and "attention_mask"
+        model.quantize(examples)
+
+        # save quantized model
+        model.save_quantized(quantized_model_dir)
 
     def inference(self, prompt: str, config: dict):
-        encoding = self.tokenizer(prompt, return_tensors="pt").to("auto")
-        g_c = self.model.config.generation_config
+        encoding = self.tokenizer(prompt, return_tensors="pt").to("cuda")
+        g_c = self.model.generation_config
         if "max_new_tokens" in config:
             g_c.max_new_tokens = config["max_new_tokens"]
         if "temperature" in config:
@@ -122,9 +160,17 @@ class ModelManager:
             )
         if len(outputs) > 1:
             raise ValueError("Batch generation is not supported")
-        self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     def load_lora(self, path: str):
-        lora_path = os.path.join(path, "adapter_model.bin")
-        adapters_weights = torch.load(lora_path)
-        self.model = set_peft_model_state_dict(self.model, adapters_weights)
+        # lora_path = os.path.join(path, "adapter_model.bin")
+        # adapters_weights = torch.load(lora_path)
+        self.model = PeftModel.from_pretrained(
+            self.model,
+            path,
+            device_map="auto",
+            torch_dtype=torch.float16,
+        )
+
+    def merge_lora(self):
+        self.model = self.model.merge_and_unload()
