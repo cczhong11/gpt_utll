@@ -35,8 +35,11 @@ class ModelManager:
         self.tokenizer.save_pretrained(output_dir)
 
     def load_model(self):
-        model_path = self.model_path.replace("/", "_")
-        model_file_path = os.path.join("models", model_path)
+        if not os.path.exists(self.model_path):
+            model_path = self.model_path.replace("/", "_")
+            model_file_path = os.path.join("models", model_path)
+        else:
+            model_file_path = self.model_path
         if not os.path.exists(model_file_path):
             self.download_model(self.model_path)
         if self.model_type == "llama":
@@ -63,10 +66,14 @@ class ModelManager:
                     trust_remote_code=self.trust_remote_code,
                 )
         if self.lora:
-            lora_path = self.lora.replace("/", "_")
-            if not os.path.exists(os.path.join("loras", lora_path)):
-                self.download_model(self.lora)
-            self.load_lora(os.path.join("loras", lora_path))
+            if not os.path.exists(self.lora):
+                lora_path = self.lora.replace("/", "_")
+                if not os.path.exists(os.path.join("loras", lora_path)):
+                    self.download_model(self.lora)
+                lora_file_path = os.path.join("loras", lora_path)
+            else:
+                lora_file_path = self.lora
+            self.load_lora(lora_file_path)
 
     def download_model(self, repo_id: str):
         list(download_model_wrapper(repo_id))
