@@ -1,6 +1,7 @@
 import transformers
 import os
 import copy
+from datasets import load_dataset
 
 
 def printf(*args, **kargs):
@@ -152,3 +153,95 @@ class chat_prompt(prompt):
 
     def get_data_collator():
         return transformers.DataCollatorForLanguageModeling
+
+
+class DatasetHelper(object):
+    def __init__(self, dataset_path, output_dir) -> None:
+        self.dataset_path = dataset_path
+        self.output_dir = output_dir
+
+    def load_dataset(
+        self, dataset_name, validation_split_percentage=0.8, **dataset_args
+    ):
+        extension = dataset_name.split(".")[-1]
+        raw_datasets = load_dataset(
+            extension,
+            data_files=self.dataset_path,
+            cache_dir=os.path.join(self.output_dir, "dataset_cache"),
+            **dataset_args,
+        )
+        if "validation" not in raw_datasets:
+            raw_datasets["validation"] = load_dataset(
+                extension,
+                data_files=self.dataset_path,
+                split=f"train[:{validation_split_percentage}%]",
+                cache_dir=os.path.join(self.output_dir, "dataset_cache"),
+                **dataset_args,
+            )
+            raw_datasets["train"] = load_dataset(
+                extension,
+                data_files=self.dataset_path,
+                split=f"train[{validation_split_percentage}%:]",
+                cache_dir=os.path.join(self.output_dir, "dataset_cache"),
+                **dataset_args,
+            )
+        return raw_datasets
+
+
+class TokenizierHelper(object):
+    def __init__(self, tokenizer, train_dataset) -> None:
+        self.tokenizer = tokenizer
+        self.train_dataset = train_dataset
+
+    def print_all_dataset_features(self) -> None:
+        print(list(self.train_dataset["train"].features))
+
+    def tokenize_text_data(self, row, text_column_name="text", block_size=4096):
+        output = self.tokenizer(
+            [item for item in row[text_column_name]],
+            truncation=True,
+            max_length=block_size,
+            padding=False,
+            return_tensors=None,
+        )
+        output["labels"] = output["input_ids"].copy()
+        return output
+
+    def tokenize_prompt(self, text, block_size=4096):
+        result = self.tokenizer(
+            prompt,
+            truncation=True,
+            max_length=block_size,
+            padding=False,
+            return_tensors=None,
+        )
+        result["labels"] = result["input_ids"].copy()
+        return result
+
+    def tokenize_input_data(self, row, input_column, output_column):
+        input_text = row[input_column]
+        output_text = row[output_column]
+        full_text = input_text + output_text
+        tokenized_full_text = self.tokenize_prompt(full_text)
+        user_prompt = self.tokenize_prompt(input_text)
+        user_prompt_len = len(user_prompt["input_ids"])
+        tokenized_full_text["labels"] = [-100] * user_prompt_len + tokenized_full_text[
+            "input_ids"
+        ][user_prompt_len:]
+        return tokenized_full_text
+
+    def tokenize_dataset(self, input_column, output_column=None):
+        if not output_column:
+            tokenized_dataset = self.train_dataset.map(
+                self.tokenize_text_data, batched=True, remove_columns=[input_column]
+            )
+            return tokenized_dataset
+        tokenized_dataset = self.dataset.map(
+            lambda row: self.tokenize_input_data(row, input_column, output_column),
+            batched=False,
+            remove_columns=[input_column, output_column],
+        )
+        return tokenized_dataset
+
+    def shuffle(self, dataset):
+        return dataset.shuffle()
