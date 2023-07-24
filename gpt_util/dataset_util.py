@@ -161,7 +161,7 @@ class DatasetHelper(object):
         self.output_dir = output_dir
 
     def load_dataset(
-        self, dataset_name, validation_split_percentage=0.8, **dataset_args
+        self, dataset_name, validation_split_percentage=80, **dataset_args
     ):
         extension = dataset_name.split(".")[-1]
         raw_datasets = load_dataset(
@@ -209,7 +209,7 @@ class TokenizierHelper(object):
 
     def tokenize_prompt(self, text, block_size=4096):
         result = self.tokenizer(
-            prompt,
+            text,
             truncation=True,
             max_length=block_size,
             padding=False,
@@ -236,7 +236,7 @@ class TokenizierHelper(object):
                 self.tokenize_text_data, batched=True, remove_columns=[input_column]
             )
             return tokenized_dataset
-        tokenized_dataset = self.dataset.map(
+        tokenized_dataset = self.train_dataset.map(
             lambda row: self.tokenize_input_data(row, input_column, output_column),
             batched=False,
             remove_columns=[input_column, output_column],
