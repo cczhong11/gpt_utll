@@ -225,7 +225,7 @@ class ModelDownloader:
             )
 
 
-def download_model_wrapper(repo_id):
+def download_model_wrapper(repo_id, threads=8):
     try:
         downloader = ModelDownloader()
         repo_id_parts = repo_id.split(":")
@@ -250,7 +250,7 @@ def download_model_wrapper(repo_id):
         else:
             yield (f"Downloading files to {output_folder}")
             downloader.download_model_files(
-                model, branch, links, sha256, output_folder, threads=1
+                model, branch, links, sha256, output_folder, threads=threads
             )
             yield ("Done!")
     except:
