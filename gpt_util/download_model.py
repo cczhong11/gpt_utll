@@ -225,6 +225,29 @@ class ModelDownloader:
             )
 
 
+def print_fast_download_link(
+    repo_id, root_dir="/content/text-generation-webui/models/", prefix="!"
+):
+    downloader = ModelDownloader()
+    repo_id_parts = repo_id.split(":")
+    model = repo_id_parts[0] if len(repo_id_parts) > 0 else repo_id
+    branch = repo_id_parts[1] if len(repo_id_parts) > 1 else "main"
+    check = False
+    yield ("Cleaning up the model/branch names")
+    model, branch = downloader.sanitize_model_and_branch_names(model, branch)
+    yield ("Getting the download links from Hugging Face")
+    links, sha256, is_lora = downloader.get_download_links_from_huggingface(
+        model, branch, text_only=False
+    )
+    for link in links:
+        filename = link.split("/")[-1]
+        string_to_extract = link.split("/")[3:5]
+        folder = "_".join(string_to_extract)
+        print(
+            f"{prefix}aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {link} -d {root_dir}{folder} -o {filename}"
+        )
+
+
 def download_model_wrapper(repo_id, threads=8):
     try:
         downloader = ModelDownloader()
