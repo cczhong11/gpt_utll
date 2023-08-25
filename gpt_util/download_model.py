@@ -233,9 +233,9 @@ def print_fast_download_link(
     model = repo_id_parts[0] if len(repo_id_parts) > 0 else repo_id
     branch = repo_id_parts[1] if len(repo_id_parts) > 1 else "main"
     check = False
-    yield ("Cleaning up the model/branch names")
+    print("Cleaning up the model/branch names")
     model, branch = downloader.sanitize_model_and_branch_names(model, branch)
-    yield ("Getting the download links from Hugging Face")
+    print("Getting the download links from Hugging Face")
     links, sha256, is_lora = downloader.get_download_links_from_huggingface(
         model, branch, text_only=False
     )

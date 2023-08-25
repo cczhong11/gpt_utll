@@ -39,7 +39,7 @@ class TrainManager:
         self.model_manager = model_manager
 
     def train_lora(self, config: LoraConfig, training_args: TrainingArguments, data):
-        self.model_manager.load_model()
+        # self.model_manager.load_model()
         model = self.model_manager.model
         model.gradient_checkpointing_enable()
         if self.model_manager.load_4bits:
